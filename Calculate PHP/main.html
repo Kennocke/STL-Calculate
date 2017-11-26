@@ -1,13 +1,19 @@
 <!DOCTYPE HTML>
 <html>
 <head>
-<meta charset="utf-8">
-<title>Загрузка 3D модели</title>
+	<meta charset="UTF-8">
 </head>
 <body>
 	<form enctype="multipart/form-data" action="index.php" method="post">
-        <!-- <input id="file-select" type="file" /> -->
-		<input type="file" name="uploadfile">
+		Тип пластика: 
+		<select name="s">
+			<option value="ABS">ABS</option>
+			<option value="PLA">PLA</option>
+			<option value="Nylon">Nylon</option>
+        </select>
+		<br>
+		<br>
+		<input type="file" name="uploadfile" id="myForm">
         <button type="submit">Slice</button>
     </form>
 </body>

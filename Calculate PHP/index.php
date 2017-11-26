@@ -1,57 +1,64 @@
-﻿<?php
-//error_reporting(E_ALL ^ E_NOTICE);
+<?php
+  error_reporting( E_ERROR );
+  const HEADER_BYTES = 80;
+  const FACETS_COUNT_BYTES = 4;
+  // Мы будем читать сразу по 3 значения для вектора и вертекса.
+  // В теории можно прочитать сразу весь фасет, но тогда "pattern" для чения длинноват будет.
+  const VECTOR_SIZE_BYTES = 12; //3*4
+  const VERTEX_SIZE_BYTE = 12; // 3*4
+  const VERTICES_COUNT = 3;
 
-$filename = "C:/xampp/tmp/" .basename($_FILES['uploadfile']['tmp_name']);
-$count = 3;
-$handle = fopen($filename, "rb");
-//fseek($handle,80);
-$header = fread($handle, 80);
-$rnum = fread($handle, 4);
-$num = unpack('I', $rnum);
-print_r($num);
+  // Патерн для получения массива с элементами x, y, z. где тип переменной g  - float (machine dependent size, little endian byte order)      
+  const FACET_END_BYTES = 2;
+  const TRIPLET_EXTRACT_PATTERN = 'gx/gy/gz';
 
-//die();
+  $filename = "C:/xampp/tmp/" .basename($_FILES['uploadfile']['tmp_name']);
+  $sf = fopen($filename, 'rb');
 
-$sum = 0;
-//   while (feof($handle)==false) {
-for ($i = 0; $i< $num; $i++) {
-	$contents = fread($handle, 4);
-	$normal1 = unpack('f', fread($handle, 4));
-	$contents = fread($handle, 4);
-	$normal2 = unpack('f', $contents);
-	$contents = fread($handle, 4);
-	$normal3 = unpack('f', $contents);
-		
-	$contents = fread($handle, 4);
-	$vertex11 = unpack('f', $contents);
-	$contents = fread($handle, 4);
-	$vertex12 = unpack('f', $contents);
-	$contents = fread($handle, 4);
-	$vertex13 = unpack('f', $contents);
-	
-	$contents = fread($handle, 4);
-	$vertex21 = unpack('f', $contents);
-	$contents = fread($handle, 4);
-	$vertex22 = unpack('f', $contents);
-	$contents = fread($handle, 4);
-	$vertex23 = unpack('f', $contents);
-	
+  $header = fread($sf, HEADER_BYTES);
 
-	$contents = fread($handle, 4);
-	$vertex31 = unpack('f', $contents);
-	$contents = fread($handle, 4);
-	$vertex32 = unpack('f', $contents);
-	$contents = fread($handle, 4);
-	$vertex33 = unpack('f', $contents);
-	
-	$atrib = fread($handle, 2);
-	
-	$sum = $sum + ((float)$vertex31 * (float)$vertex22);
-	//$sum += (float)((((-1) * $vertex31 * $vertex22 * $vertex13) + $vertex21 * $vertex32 * $vertex13 + $vertex31 * $vertex12 * $vertex23 - $vertex11 * $vertex32 * $vertex23 - $vertex21 * $vertex12 * $vertex33 + $vertex11 * $vertex22 * $vertex33) / 6);
-	
-	//$sum += (float)((((-1) * current($vertex3) * next($vertex2) * end($vertex1)) + prev($vertex2) * next($vertex3) * prev($vertex1) + prev($vertex3) * current($vertex1) * end($vertex2) - prev($vertex1) * next($vertex3) * current($vertex2) - reset($vertex2) * next($vertex1) * next($vertex3) + prev($vertex1) * next($vertex2) * current($vertex3)) / 6);
-	//$sum = $sum + ((((-1) * $vertex3[0] * $vertex2[1] * $vertex1[2]) + $vertex2[0] * $vertex3[1] * $vertex1[2] + $vertex3[0] * $vertex1[1] * $vertex2[2] - $vertex1[0] * $vertex3[1] * $vertex2[2] - $vertex2[0] * $vertex1[1] * $vertex3[2] + $vertex1[0] * $vertex2[1] * $vertex3[2]) / 6);
-} 
-fclose($handle);
-print($sum);
-?>
+  $facetsCountBytes = fread($sf, FACETS_COUNT_BYTES);
+  // Current  очень важно так как unpack() возвращает массив
+  $facetsCount = current(unpack("I", $facetsCountBytes));
+
+  $sum = 0.0;
+  $plot = 0.0;
+
+  for ($i=0; $i<$facetsCount; $i++) {
+
+      $facet =[];
+      // Читаем и распоковываем вектор
+      // Когда читал по одному элементу а не три сразу, распоковка выдавала ерунду.
+      $vectorBytes = fread($sf, VECTOR_SIZE_BYTES);
+      $facet['vector'] = unpack(TRIPLET_EXTRACT_PATTERN, $vectorBytes);
+	  
+
+      // Читаем и распоковываем вертексы 
+      for ($j=1; $j<=VERTICES_COUNT; $j++) {
+          $vertexBytes = fread($sf, VERTEX_SIZE_BYTE);
+          $facet['vertex'.$j] = unpack(TRIPLET_EXTRACT_PATTERN, $vertexBytes);
+      }
+	  
+      $endBytes = fread($sf, FACET_END_BYTES);
+      $facet['end'] = current(unpack('S', $endBytes));
+
+	  $sum += ((-1) * $facet[vertex3][x] * $facet[vertex2][y] * $facet[vertex1][z] + $facet[vertex2][x] * $facet[vertex3][y] * $facet[vertex1][z] + $facet[vertex3][x] * $facet[vertex1][y] * $facet[vertex2][z] - $facet[vertex1][x] * $facet[vertex3][y] * $facet[vertex2][z] - $facet[vertex2][x] * $facet[vertex1][y] * $facet[vertex3][z] + $facet[vertex1][x] * $facet[vertex2][y] * $facet[vertex3][z])/6;
+  }
+  $sum = $sum / 1000;
+  print_r ("Объём: " .$sum ." см.куб<br>");
+  
+  $i = $_POST[s];
+  switch ($i) {
+    case "ABS":
+		$plot = $sum * 1.05;
+        echo "Вес: " .$plot ." грм";
+        break;
+    case "PLA":
+        $plot = $sum * 1.25;
+        echo "Вес: " .$plot ." грм";
+        break;
+    case "Nylon":
+        $plot = $sum * 1.134;
+        echo "Вес: " .$plot ." грм";
+        break;
+}
